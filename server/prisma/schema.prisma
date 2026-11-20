@@ -1,0 +1,400 @@
+// Gara data model (MySQL).
+//
+// Money: Decimal(10,2) in PHP. Math is done in integer centavos in services/pricing.service.js.
+// Times: stored as UTC DATETIME, interpreted in Asia/Manila by the services (see utils/time.js).
+// Table names are explicit lowercase so migrations behave the same on Windows and Linux MySQL.
+//
+// Extension points for later features (see ROADMAP.md):
+//  - BookingItem: a booking already holds many items, so bundles can later group bookings
+//    from DIFFERENT pros under one EventBundle without touching existing tables.
+//  - BookingEarning / Booking.refundNeeded: hooks for gateway payouts and refunds.
+//  - Notification.type: add new types for email/SMS channels.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Role {
+  CUSTOMER
+  PROFESSIONAL
+  ADMIN
+}
+
+enum Category {
+  HAIR
+  NAILS
+  MAKEUP
+}
+
+// What a professional offers.
+enum ServiceMode {
+  HOME
+  STORE
+  BOTH
+}
+
+// What a single booking uses.
+enum BookingMode {
+  HOME
+  STORE
+}
+
+enum VerificationStatus {
+  UNSUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING_DEPOSIT
+  DEPOSIT_SUBMITTED
+  DEPOSIT_VERIFIED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  DECLINED
+  NO_SHOW
+}
+
+enum Occasion {
+  WEDDING
+  GRADUATION
+  DEBUT
+  BIRTHDAY
+  PHOTOSHOOT
+  OTHER
+}
+
+enum NotificationType {
+  BOOKING_REQUESTED
+  DEPOSIT_SUBMITTED
+  DEPOSIT_VERIFIED
+  DEPOSIT_REJECTED
+  BOOKING_CONFIRMED
+  BOOKING_DECLINED
+  BOOKING_CANCELLED
+  BOOKING_COMPLETED
+  BOOKING_NO_SHOW
+  REMINDER_DAY_BEFORE
+  REVIEW_REQUEST
+  VERIFICATION_APPROVED
+  VERIFICATION_REJECTED
+  REFUND_NEEDED
+}
+
+// ---------------------------------------------------------------- users
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  professionalProfile ProfessionalProfile?
+  bookingsAsCustomer  Booking[]            @relation("BookingCustomer")
+  depositsVerified    Booking[]            @relation("BookingDepositVerifier")
+  bookingsCancelled   Booking[]            @relation("BookingCanceller")
+  reviews             Review[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model ProfessionalProfile {
+  id          Int         @id @default(autoincrement())
+  userId      Int         @unique
+  displayName String
+  bio         String?     @db.Text
+  serviceMode ServiceMode @default(BOTH)
+  storeAddress String?
+  // Fixed PHP amount charged for home service. Goes 100% to the pro (no commission).
+  travelFee   Decimal     @default(0) @db.Decimal(10, 2)
+
+  verificationStatus VerificationStatus @default(UNSUBMITTED)
+  rejectionReason    String?
+  // Private upload (served only through the role-checked files route).
+  idImagePath        String?
+  submittedAt        DateTime?
+  verifiedAt         DateTime?
+
+  // Denormalized from Review, updated whenever a review is created.
+  ratingAvg   Decimal  @default(0) @db.Decimal(3, 2)
+  ratingCount Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories   ProfessionalCategory[]
+  areas        ProfessionalArea[]
+  services     Service[]
+  portfolio    PortfolioImage[]
+  availability AvailabilityRule[]
+  blockedDates BlockedDate[]
+  bookings     Booking[]
+  reviews      Review[]
+
+  @@index([verificationStatus])
+  @@map("professional_profiles")
+}
+
+// MySQL has no scalar lists, so categories and areas are join tables (also easier to filter).
+model ProfessionalCategory {
+  professionalId Int
+  category       Category
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, category])
+  @@index([category])
+  @@map("professional_categories")
+}
+
+model ProfessionalArea {
+  professionalId Int
+  area           String @db.VarChar(80)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, area])
+  @@index([area])
+  @@map("professional_areas")
+}
+
+model Service {
+  id             Int      @id @default(autoincrement())
+  professionalId Int
+  name           String
+  category       Category
+  price          Decimal  @db.Decimal(10, 2)
+  durationMin    Int
+  description    String?  @db.Text
+  // Soft delete: services referenced by past bookings are never removed.
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+
+  @@index([professionalId, isActive])
+  @@map("services")
+}
+
+model PortfolioImage {
+  id             Int      @id @default(autoincrement())
+  professionalId Int
+  path           String
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@map("portfolio_images")
+}
+
+// Weekly availability. dayOfWeek is ISO: 1 = Monday ... 7 = Sunday.
+// startMin / endMin are minutes from midnight in Asia/Manila (9:00 = 540, 18:00 = 1080).
+// A day may have several windows (e.g. 9-12 and 13-18).
+model AvailabilityRule {
+  id             Int @id @default(autoincrement())
+  professionalId Int
+  dayOfWeek      Int
+  startMin       Int
+  endMin         Int
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, dayOfWeek])
+  @@map("availability_rules")
+}
+
+model BlockedDate {
+  id             Int      @id @default(autoincrement())
+  professionalId Int
+  date           DateTime @db.Date
+  reason         String?
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, date])
+  @@map("blocked_dates")
+}
+
+// ---------------------------------------------------------------- bookings
+
+model Booking {
+  id             Int           @id @default(autoincrement())
+  customerId     Int
+  professionalId Int
+  mode           BookingMode
+  address        String?       @db.Text
+  area           String?       @db.VarChar(80)
+  occasion       Occasion?
+  notes          String?       @db.Text
+
+  // Appointment window (UTC instants). endAt = startAt + total item duration.
+  startAt DateTime
+  endAt   DateTime
+
+  status BookingStatus @default(PENDING_DEPOSIT)
+
+  // Price snapshot. Settings can change later; a booking keeps what was agreed.
+  subtotal      Decimal @db.Decimal(10, 2)
+  travelFee     Decimal @default(0) @db.Decimal(10, 2)
+  total         Decimal @db.Decimal(10, 2)
+  depositPct    Decimal @db.Decimal(5, 2)
+  depositAmount Decimal @db.Decimal(10, 2)
+  balanceDue    Decimal @db.Decimal(10, 2)
+  commissionPct Decimal @db.Decimal(5, 2)
+
+  // Manual GCash deposit. The reference number is unique across bookings (stored upper-case),
+  // so one payment cannot be claimed for two bookings. It is cleared if the admin rejects it.
+  gcashRef              String?   @unique @db.VarChar(64)
+  depositScreenshotPath String?
+  depositSubmittedAt    DateTime?
+  depositVerifiedAt     DateTime?
+  depositVerifiedById   Int?
+  depositRejectNote     String?
+
+  // An unpaid booking holds its slot until this time (Settings.holdMinutes, default 120).
+  holdExpiresAt DateTime?
+
+  // Pro accept/decline time. Used for the "median response time" metric.
+  respondedAt   DateTime?
+  declineReason String?
+  completedAt   DateTime?
+  cancelledAt DateTime?
+  cancelledById Int?
+
+  // Pro declined after the deposit was verified: admin must refund manually.
+  refundNeeded     Boolean   @default(false)
+  refundResolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer          User                @relation("BookingCustomer", fields: [customerId], references: [id])
+  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  depositVerifiedBy User?               @relation("BookingDepositVerifier", fields: [depositVerifiedById], references: [id])
+  cancelledBy       User?               @relation("BookingCanceller", fields: [cancelledById], references: [id])
+  items             BookingItem[]
+  earning           BookingEarning?
+  review            Review?
+  notifications     Notification[]
+
+  @@index([professionalId, startAt])
+  @@index([customerId, status])
+  @@index([status])
+  @@index([refundNeeded])
+  @@map("bookings")
+}
+
+model BookingItem {
+  id          Int      @id @default(autoincrement())
+  bookingId   Int
+  serviceId   Int?
+  // Snapshots, so renaming or repricing a service never rewrites history.
+  name        String
+  category    Category
+  price       Decimal  @db.Decimal(10, 2)
+  durationMin Int
+  sortOrder   Int      @default(0)
+
+  booking Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@map("booking_items")
+}
+
+// Created once, when a booking becomes COMPLETED.
+//   gross            = sum of service prices (travel fee excluded)
+//   commissionAmount = gross * commissionPct / 100
+//   proNet           = gross - commissionAmount + travelFee
+model BookingEarning {
+  id               Int      @id @default(autoincrement())
+  bookingId        Int      @unique
+  gross            Decimal  @db.Decimal(10, 2)
+  commissionPct    Decimal  @db.Decimal(5, 2)
+  commissionAmount Decimal  @db.Decimal(10, 2)
+  travelFee        Decimal  @db.Decimal(10, 2)
+  proNet           Decimal  @db.Decimal(10, 2)
+  createdAt        DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_earnings")
+}
+
+// ---------------------------------------------------------------- reviews
+
+model Review {
+  id             Int      @id @default(autoincrement())
+  // Unique: one review per booking, enforced by the database as well as the service.
+  bookingId      Int      @unique
+  customerId     Int
+  professionalId Int
+  rating         Int
+  comment        String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  booking      Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer     User                @relation(fields: [customerId], references: [id])
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id])
+
+  @@index([professionalId, createdAt])
+  @@map("reviews")
+}
+
+// ---------------------------------------------------------------- notifications
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  bookingId Int?
+  // Makes scheduled notifications (day-before reminder) idempotent. NULLs do not collide.
+  dedupeKey String?          @unique @db.VarChar(191)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------- settings
+
+// Single row (id = 1), editable by the admin.
+model Setting {
+  id            Int      @id @default(1)
+  depositPct    Decimal  @default(20) @db.Decimal(5, 2)
+  commissionPct Decimal  @default(10) @db.Decimal(5, 2)
+  // Minutes an unpaid (PENDING_DEPOSIT) booking keeps its slot.
+  holdMinutes   Int      @default(120)
+  gcashNumber   String   @default("09XX XXX XXXX")
+  gcashName     String   @default("Gara (placeholder)")
+  gcashQrPath   String?
+  updatedAt     DateTime @updatedAt
+
+  @@map("settings")
+}

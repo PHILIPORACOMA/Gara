@@ -1,0 +1,54 @@
+/*
+ * GARA THEME: the single place for brand colors, fonts and radii.
+ * When the brand book is ready, change the values below; every component uses these
+ * tokens (bg-brand-500, text-ink-700, font-display, rounded-card, ...), so nothing else
+ * needs to change. If you change a font here, update the Google Fonts <link> in
+ * client/index.html as well.
+ */
+@theme {
+  /* Fonts */
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Playfair Display", ui-serif, Georgia, serif;
+
+  /* Primary brand color (placeholder rose) */
+  --color-brand-50: #fff1f5;
+  --color-brand-100: #ffe0ea;
+  --color-brand-200: #ffc2d6;
+  --color-brand-300: #ff94b7;
+  --color-brand-400: #f95e92;
+  --color-brand-500: #e8386f;
+  --color-brand-600: #c82458;
+  --color-brand-700: #a61a49;
+  --color-brand-800: #861840;
+  --color-brand-900: #6f1739;
+
+  /* Accent (placeholder champagne gold) */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-300: #f0cf7f;
+  --color-accent-500: #c99532;
+  --color-accent-700: #8a6317;
+
+  /* Warm neutrals for text and surfaces */
+  --color-ink-50: #faf7f7;
+  --color-ink-100: #f3eeee;
+  --color-ink-200: #e6dede;
+  --color-ink-300: #cfc4c5;
+  --color-ink-400: #a89b9d;
+  --color-ink-500: #7d6f72;
+  --color-ink-600: #5c5053;
+  --color-ink-700: #433a3c;
+  --color-ink-800: #2b2527;
+  --color-ink-900: #1b1718;
+
+  /* Status colors */
+  --color-success: #2f9e6b;
+  --color-warning: #d98a1b;
+  --color-danger: #d64550;
+  --color-info: #3b82c4;
+
+  /* Shape */
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(27 23 24 / 0.04), 0 4px 16px rgb(27 23 24 / 0.06);
+}

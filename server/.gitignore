@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+
+# Uploaded files (keep the folders, ignore the contents)
+uploads/public/*
+uploads/private/*
+!uploads/public/.gitkeep
+!uploads/private/.gitkeep
