@@ -4,6 +4,9 @@
 export const MIN_PORTFOLIO_IMAGES = 1;
 export const MAX_PORTFOLIO_IMAGES = 12;
 
+// A pro can be reached on Messenger, or by call/SMS on a phone number (workbook v3).
+export const hasContactMethod = (profile) => Boolean(profile.messengerUrl?.trim() || profile.contactPhone?.trim());
+
 export function buildChecklist({ profile, categoryCount, areaCount, activeServiceCount, availabilityCount, portfolioCount, hasIdImage }) {
   const needsStore = profile.serviceMode === 'STORE' || profile.serviceMode === 'BOTH';
   const basicsDone =
@@ -14,6 +17,7 @@ export function buildChecklist({ profile, categoryCount, areaCount, activeServic
 
   const items = [
     { key: 'profile', label: 'Complete your profile (name, categories, areas, service mode)', done: basicsDone, link: '/pro/profile' },
+    { key: 'contact', label: 'Add how customers reach you (Messenger link or mobile number)', done: hasContactMethod(profile), link: '/pro/profile' },
     { key: 'services', label: 'Add at least one service with a price', done: activeServiceCount > 0, link: '/pro/services' },
     { key: 'availability', label: 'Set your weekly availability', done: availabilityCount > 0, link: '/pro/availability' },
     {

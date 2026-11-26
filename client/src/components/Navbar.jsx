@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { homePathFor } from '../auth/roleHome.js';
 import Button from './Button.jsx';
 import NotificationBell from './NotificationBell.jsx';
+import { BOOKINGS_ENABLED } from '../lib/features.js';
 
 const linkClass = ({ isActive }) =>
   `rounded-control px-3 py-2 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100'}`;
@@ -21,8 +22,9 @@ export default function Navbar() {
     { to: '/', label: 'Home', end: true },
     { to: '/search', label: 'Find a pro' },
   ];
-  if (user?.role === 'CUSTOMER') links.push({ to: '/bookings', label: 'My bookings' });
-  else if (user) links.push({ to: homePathFor(user.role), label: 'Dashboard' });
+  if (user?.role === 'CUSTOMER') {
+    if (BOOKINGS_ENABLED) links.push({ to: '/bookings', label: 'My bookings' });
+  } else if (user) links.push({ to: homePathFor(user.role), label: 'Dashboard' });
 
   const handleLogout = () => {
     logout();

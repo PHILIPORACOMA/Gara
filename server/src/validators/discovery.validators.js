@@ -16,6 +16,8 @@ export const searchQuery = z
     maxPrice: optional(z.coerce.number({ error: 'Enter a valid price' }).min(0)),
     // Query strings are text: "false" must not become true.
     homeOnly: optional(z.enum(['true', 'false']).transform((v) => v === 'true')),
+    // "search" when the request comes from the Find a pro page (counted for metrics).
+    source: optional(z.enum(['search'])),
   })
   .superRefine((q, ctx) => {
     if (q.minPrice != null && q.maxPrice != null && q.minPrice > q.maxPrice) {

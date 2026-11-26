@@ -4,6 +4,7 @@ import * as bookingController from '../controllers/booking.controller.js';
 import { calendarQuery, declineBody, pageQuery, proListQuery } from '../validators/booking.validators.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { env } from '../config/env.js';
 import { uploadIdImage, uploadPortfolioImages, verifyUploadedImages } from '../middleware/upload.js';
 import {
   availabilityBody,
@@ -37,14 +38,19 @@ router.delete('/blocked-dates/:id', validate({ params: idParam }), controller.re
 
 router.post('/verification', uploadIdImage, verifyUploadedImages, controller.submitVerification);
 
-// Bookings: the professional's own only.
-router.get('/dashboard', bookingController.proDashboard);
-router.get('/bookings', validate({ query: proListQuery }), bookingController.proList);
-router.get('/calendar', validate({ query: calendarQuery }), bookingController.proCalendar);
-router.get('/earnings', validate({ query: pageQuery }), bookingController.proEarnings);
-router.post('/bookings/:id/accept', validate({ params: idParam }), bookingController.accept);
-router.post('/bookings/:id/decline', validate({ params: idParam, body: declineBody }), bookingController.decline);
-router.post('/bookings/:id/complete', validate({ params: idParam }), bookingController.complete);
-router.post('/bookings/:id/no-show', validate({ params: idParam }), bookingController.noShow);
+// Profile views and contact taps from the last 7 and 30 days (workbook: show pros their value).
+router.get('/insights', controller.getInsights);
+
+// Bookings: the professional's own only. Off in the discovery version (FEATURE_BOOKINGS).
+if (env.FEATURE_BOOKINGS) {
+  router.get('/dashboard', bookingController.proDashboard);
+  router.get('/bookings', validate({ query: proListQuery }), bookingController.proList);
+  router.get('/calendar', validate({ query: calendarQuery }), bookingController.proCalendar);
+  router.get('/earnings', validate({ query: pageQuery }), bookingController.proEarnings);
+  router.post('/bookings/:id/accept', validate({ params: idParam }), bookingController.accept);
+  router.post('/bookings/:id/decline', validate({ params: idParam, body: declineBody }), bookingController.decline);
+  router.post('/bookings/:id/complete', validate({ params: idParam }), bookingController.complete);
+  router.post('/bookings/:id/no-show', validate({ params: idParam }), bookingController.noShow);
+}
 
 export default router;

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { useAsync } from '../hooks/useAsync.js';
-import { getPro, getProReviews } from '../api/discovery.js';
+import { contactPro, getPro, getProReviews } from '../api/discovery.js';
 import { apiErrorMessage } from '../api/http.js';
 import Badge from '../components/Badge.jsx';
 import Button from '../components/Button.jsx';
@@ -10,9 +10,10 @@ import StarRating from '../components/StarRating.jsx';
 import VerifiedBadge from '../components/VerifiedBadge.jsx';
 import Spinner from '../components/Spinner.jsx';
 import ErrorState from '../components/ErrorState.jsx';
-import { CATEGORY_LABELS, SERVICE_MODE_LABELS, formatDuration } from '../lib/labels.js';
+import { CATEGORY_LABELS, DAY_LABELS, SERVICE_MODE_LABELS, formatDuration } from '../lib/labels.js';
+import { BOOKINGS_ENABLED } from '../lib/features.js';
 import { formatPeso } from '../lib/money.js';
-import { formatDate } from '../lib/dates.js';
+import { formatDate, formatMinutes } from '../lib/dates.js';
 import { uploadUrl } from '../lib/uploads.js';
 
 function Lightbox({ photos, index, onClose }) {
@@ -115,6 +116,108 @@ function Reviews({ pro }) {
   );
 }
 
+// Weekly hours and the next blocked dates, so customers know before they message.
+function Availability({ pro }) {
+  const byDay = (d) => pro.availability.filter((r) => r.dayOfWeek === d);
+  return (
+    <section aria-labelledby="availability-heading" className="rounded-card bg-white p-5 shadow-card">
+      <h2 id="availability-heading" className="text-xl font-semibold">
+        Availability
+      </h2>
+      <ul className="mt-3 divide-y divide-ink-100 text-sm">
+        {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+          const windows = byDay(d);
+          return (
+            <li key={d} className="flex justify-between gap-3 py-2">
+              <span className="font-medium text-ink-800">{DAY_LABELS[d]}</span>
+              <span className={windows.length ? "text-ink-700" : "text-ink-400"}>
+                {windows.length ? windows.map((w) => `${formatMinutes(w.startMin)} – ${formatMinutes(w.endMin)}`).join(", ") : "Not available"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {pro.blockedDates.length > 0 && (
+        <p className="mt-3 text-sm text-ink-600">
+          <span className="font-medium text-ink-800">Not available on: </span>
+          {pro.blockedDates.map((d) => formatDate(`${d}T00:00:00+08:00`)).join("; ")}
+        </p>
+      )}
+      <p className="mt-2 text-xs text-ink-500">Philippine time. Confirm the exact date and time with the pro when you message them.</p>
+    </section>
+  );
+}
+
+const CHANNELS = [
+  ["MESSENGER", "Messenger", "messenger"],
+  ["CALL", "Call", "call"],
+  ["SMS", "SMS", "sms"],
+];
+
+// One-tap contact (workbook v3). Customers must be signed in; each tap is counted, then the
+// Messenger, phone or SMS app opens. Gara is not part of the conversation after that.
+function ContactBar({ pro }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState("");
+  const options = CHANNELS.filter(([, , key]) => pro.contact[key]);
+
+  if (user && user.role !== "CUSTOMER") return null;
+
+  const tap = async (channel) => {
+    if (!user) {
+      navigate("/login", { state: { from: location.pathname } });
+      return;
+    }
+    // Open the Messenger tab inside the click itself, otherwise pop-up blockers stop it.
+    const win = channel === "MESSENGER" ? window.open("", "_blank") : null;
+    setBusy(channel);
+    setError("");
+    try {
+      const { href } = await contactPro(pro.id, channel);
+      if (win) {
+        win.opener = null;
+        win.location.href = href;
+      } else {
+        window.location.href = href;
+      }
+    } catch (err) {
+      win?.close();
+      setError(apiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="sticky bottom-0 -mx-4 border-t border-ink-100 bg-white/95 px-4 py-3 backdrop-blur">
+      {options.length === 0 ? (
+        <p className="text-center text-sm text-ink-600">{pro.displayName} has not added contact details yet.</p>
+      ) : (
+        <>
+          <p className="mb-2 text-center text-sm font-medium text-ink-700">
+            {user ? `Contact ${pro.displayName}` : "Log in to contact this pro"}
+          </p>
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+            {options.map(([channel, label]) => (
+              <Button key={channel} variant={channel === "MESSENGER" ? "primary" : "secondary"} loading={busy === channel} disabled={busy !== null} onClick={() => tap(channel)}>
+                {label}
+              </Button>
+            ))}
+          </div>
+          {error && (
+            <p role="alert" className="mt-2 text-center text-sm text-danger">
+              {error}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ProPublicProfile() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -147,9 +250,11 @@ export default function ProPublicProfile() {
           <h1 className="text-3xl font-bold">{pro.displayName}</h1>
           <VerifiedBadge />
         </div>
-        <div className="mt-2">
-          <StarRating value={pro.ratingAvg} count={pro.ratingCount} size="size-5" />
-        </div>
+        {BOOKINGS_ENABLED && (
+          <div className="mt-2">
+            <StarRating value={pro.ratingAvg} count={pro.ratingCount} size="size-5" />
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap gap-1.5">
           {pro.categories.map((c) => (
             <Badge key={c} tone="brand">
@@ -176,7 +281,7 @@ export default function ProPublicProfile() {
           {homeService && (
             <div>
               <dt className="text-xs uppercase tracking-wide text-ink-500">Home-service travel fee</dt>
-              <dd>{pro.travelFee > 0 ? `${formatPeso(pro.travelFee)} (shown again before you confirm)` : 'No travel fee'}</dd>
+              <dd>{pro.travelFee > 0 ? formatPeso(pro.travelFee) : 'No travel fee'}</dd>
             </div>
           )}
         </dl>
@@ -223,11 +328,15 @@ export default function ProPublicProfile() {
         ))}
       </section>
 
-      <Reviews pro={pro} />
+      <Availability pro={pro} />
+
+      {BOOKINGS_ENABLED && <Reviews pro={pro} />}
+
+      {!BOOKINGS_ENABLED && <ContactBar pro={pro} />}
 
       {/* Pros and admins browse but do not book. Everyone else (including visitors, who are
           asked to log in first) gets the booking button, pinned to the bottom on phones. */}
-      {(!user || user.role === 'CUSTOMER') && (
+      {BOOKINGS_ENABLED && (!user || user.role === 'CUSTOMER') && (
         <div className="sticky bottom-0 -mx-4 border-t border-ink-100 bg-white/95 px-4 py-3 backdrop-blur">
           <Link
             to={`/pros/${pro.id}/book${bookDate ? `?date=${bookDate}` : ''}`}

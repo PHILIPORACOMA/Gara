@@ -7,6 +7,36 @@ export const idParam = z.object({ id: z.coerce.number().int().positive() });
 const emptyToUndefined = (v) => (v === '' || v === null ? undefined : v);
 const unique = (arr) => [...new Set(arr)];
 
+// Messenger or Facebook link: "m.me/marareyes", "https://www.facebook.com/marareyes.hair", ...
+const MESSENGER_LINK = /^(https?:\/\/)?(www\.|m\.)?(m\.me|messenger\.com|facebook\.com|fb\.com)\/\S+$/i;
+export const toHttpsUrl = (v) => (/^https?:\/\//i.test(v) ? v.replace(/^http:/i, 'https:') : `https://${v}`);
+
+// Philippine mobile number in any common spelling ("0917 123 4567", "+63 917-123-4567"),
+// stored as +639171234567 so it works in tel: and sms: links.
+const PH_MOBILE = /^(\+?63|0)9\d{9}$/;
+export const toE164Ph = (v) => `+63${v.replace(/^(\+?63|0)/, '')}`;
+
+export const messengerUrlField = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .trim()
+    .max(200)
+    .regex(MESSENGER_LINK, 'Paste your Messenger link (m.me/yourpage) or your Facebook page link')
+    .transform(toHttpsUrl)
+    .optional(),
+);
+
+export const contactPhoneField = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .transform((v) => v.replace(/[\s()-]/g, ''))
+    .pipe(z.string().regex(PH_MOBILE, 'Enter a Philippine mobile number, like 0917 123 4567'))
+    .transform(toE164Ph)
+    .optional(),
+);
+
 export const profileBody = z
   .object({
     displayName: z.string({ error: 'Display name is required' }).trim().min(2, 'Display name must be at least 2 characters').max(60),
@@ -26,6 +56,8 @@ export const profileBody = z
       .min(0, 'Travel fee cannot be negative')
       .max(5000, 'Travel fee must be at most 5,000')
       .default(0),
+    messengerUrl: messengerUrlField,
+    contactPhone: contactPhoneField,
   })
   .superRefine((v, ctx) => {
     if ((v.serviceMode === 'STORE' || v.serviceMode === 'BOTH') && !v.storeAddress) {

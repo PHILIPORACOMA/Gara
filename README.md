@@ -1,8 +1,14 @@
 # Gara
 
-On-demand booking and trust platform for hairstyling, nail and makeup services in Cebu City.
-Customers book verified beauty professionals; professionals manage their bookings in one place;
-the Gara team verifies professionals and deposits.
+Discovery and connection platform for hairstyling, nail and makeup professionals in Cebu City
+(team workbook v3). Customers find verified pros by service, area, date and price, compare
+portfolios, prices, home-service fees and availability, then contact the pro in one tap on
+Messenger, by call or by SMS. **Gara does not handle bookings or payments**: customers and pros
+agree on the details directly.
+
+> The earlier booking version (GCash deposits, commission, reviews) is still in the code, switched
+> off by `FEATURE_BOOKINGS=false` / `VITE_FEATURE_BOOKINGS=false`. Git tag `booking-mvp` holds it
+> as it was before the pivot.
 
 Monorepo with two separate apps:
 
@@ -15,9 +21,10 @@ Features not built yet are listed in [ROADMAP.md](ROADMAP.md).
 
 | Role | Can do |
 | --- | --- |
-| **Customer** | Search verified pros (category, date, area, price, home service), view portfolios and reviews, book one or more services from one pro (home service or in-store), see the full price before confirming, pay the deposit by GCash, track bookings, leave a review after the appointment |
-| **Professional** | Register, build a profile with services and portfolio, set weekly hours and blocked dates, submit an ID for verification, accept or decline requests, mark bookings completed or no-show, see earnings (gross, commission, net) |
-| **Admin** | Verify professionals and GCash deposits, see all bookings and refunds needed, watch the key metrics, edit deposit %, commission % and the GCash details |
+| **Visitor** | Search verified pros (category, area, date, price, home service), open a profile: portfolio, services and prices, home-service fee, areas served, weekly availability and blocked dates |
+| **Customer** (signed in) | Everything a visitor can, plus tap **Messenger**, **Call** or **SMS** on a profile. Contact links are only revealed to signed-in customers, and every tap is counted |
+| **Professional** | Register, set up a profile (services, prices, areas, home-service fee, portfolio, availability, Messenger link and/or mobile number), submit an ID for verification, see profile views and contact taps for the last 7 and 30 days |
+| **Admin** | Verify professionals, and watch the workbook metrics: verified pros per service, searches, profile views, contacts by channel, search-to-contact rate, pros updating availability weekly, returning customers |
 
 ## Requirements
 
@@ -94,41 +101,29 @@ Every demo account uses the password **`Gara1234!`**
 
 | Role | Email | Notes |
 | --- | --- | --- |
-| Admin | `admin@gara.test` | Queues, metrics, settings |
-| Customer | `ana@gara.test` | Has completed, upcoming and awaiting bookings |
-| Customer | `ben@gara.test` | Has a deposit waiting for admin verification |
-| Customer | `carla@gara.test` | Has a booking waiting for the pro |
-| Pro (hair) | `mara@gara.test` | Mara Reyes Hair Studio: 1 request to accept, 1 confirmed booking |
-| Pro (hair) | `jun@gara.test` | In-store only |
-| Pro (nails) | `lia@gara.test` | Home service only |
-| Pro (nails) | `chelsea@gara.test` | In-store only |
-| Pro (makeup) | `bea@gara.test` | Bridal and debut makeup |
-| Pro (makeup) | `kiko@gara.test` | Home service only |
-| Pro (all three) | `tin@gara.test` | Hair, makeup and nails: book several categories at once |
+| Admin | `admin@gara.test` | Verification queue and discovery metrics |
+| Customer | `ana@gara.test`, `ben@gara.test`, `carla@gara.test` | Can tap Messenger, Call and SMS on profiles |
+| Pro (hair) | `mara@gara.test`, `jun@gara.test` | |
+| Pro (nails) | `lia@gara.test`, `chelsea@gara.test` | |
+| Pro (makeup) | `bea@gara.test`, `kiko@gara.test` | Kiko's availability is "overdue", so his dashboard shows the reminder |
+| Pro (all three) | `tin@gara.test` | Hair, makeup and nails |
 | Pro (hair + makeup) | `sofia@gara.test` | |
 | Pro (pending) | `dani@gara.test` | Waiting in the admin verification queue |
 
-The seed also leaves one declined booking that needs a refund (admin: Bookings, filter "Refund needed").
+The seed also adds 30 days of demo searches, profile views and contact taps so the dashboards are
+not empty. **The seeded Messenger links (`m.me/gara.demo.*`) and phone numbers (`+63900000000x`)
+are fictional: do not tap Call or SMS on a real phone with demo data.**
 
-## Try the full flow
+## Try the flow (matches the workbook usability tests)
 
-1. **Pro:** register at `/register?role=professional`, fill in Profile, Services, Portfolio and
-   Availability, then upload an ID on Verification and submit. Log in as `admin@gara.test`, open
-   **Verifications** and approve.
-2. **Customer:** log in as `ana@gara.test`, search, open a pro, tap **Book**. Pick two services and
-   **Home service**, enter an address, pick a date and time. The price breakdown shows services +
-   travel fee = total, the deposit and the balance. Confirm, then on the payment screen enter a
-   GCash reference number and upload any image as the screenshot.
-3. **Admin:** **Deposits**, check the payment, **Verify deposit**. **Pro:** **Bookings**, **Accept**,
-   then **Mark completed**.
-4. **Customer:** open the booking and leave a review. It appears on the pro's profile as a
-   "Verified booking".
-5. **Pro:** **Earnings** shows gross, the 10% commission and net. **Admin:** the Overview metrics
-   include the commission.
-
-> A pro can normally mark a booking completed only after the appointment starts. For demos,
-> `ALLOW_EARLY_COMPLETE=true` in `server/.env` lifts that so step 3 works without waiting. It is
-> `false` in `.env.example`.
+1. **Pro onboarding (Test 3):** register at `/register?role=professional`. Fill in Profile
+   (including a Messenger link and/or mobile number), Services, Portfolio and Availability, upload
+   an ID on Verification and submit. The Overview checklist shows what is left. Log in as
+   `admin@gara.test`, open **Verifications** and approve.
+2. **Find and contact (Test 1):** open **Find a pro**, filter by service, area, date and budget,
+   open a pro, then tap **Messenger**, **Call** or **SMS**. Visitors are asked to log in first.
+3. **Proof of value:** the pro's Overview shows profile views and contact taps for the last 7 and
+   30 days. The admin Overview shows searches, views, contacts and the search-to-contact rate.
 
 ## Tests
 
@@ -137,16 +132,27 @@ npm test                   # all server tests (needs MySQL running)
 npm run lint               # client lint (catches undefined variables and hook mistakes)
 ```
 
-The server suite covers slot calculation, deposit and commission math, the booking status machine,
-the review-only-after-completion rule, and (against the real `gara_test` MySQL database)
-**double-booking prevention under concurrent requests**, the full booking flow, ratings, scheduled
-jobs and metrics. The integration tests wipe `gara_test` and refuse to run against any database
-whose name does not contain "test". If MySQL is unreachable they are skipped with a message and the
-unit tests still run.
+The server suite covers contact-link validation, the contact rules (signed-in customers only,
+links never in public responses, only channels the pro set up), view and search tracking, the
+discovery metrics, the onboarding checklist, and slot and availability logic. The booking code
+that is switched off keeps its tests too (pricing, status machine, review rule, and
+**double-booking prevention under concurrent requests** on a real MySQL database), so it stays
+correct if bookings are turned back on. Integration tests use the separate `gara_test` database,
+wipe it, and refuse to run against any database whose name does not contain "test".
+
+## Turning bookings back on
+
+Set `FEATURE_BOOKINGS=true` in `server/.env` and `VITE_FEATURE_BOOKINGS=true` in
+`client/.env`, then restart both apps. That brings back the booking flow, GCash deposits,
+commission, reviews, the deposit and booking admin pages, and the scheduled jobs. Set
+`ALLOW_EARLY_COMPLETE=true` for demos so a pro can complete a booking before its start time.
 
 ## How it is built
 
-- **Double-booking prevention.** Creating a booking runs in a database transaction that first
+- **Contact without middlemen.** Profiles say which buttons exist; the Messenger link or number is
+  returned only by `POST /api/professionals/:id/contact` to a signed-in customer, which also logs
+  the tap. Profile views and Find-a-pro searches are logged for the metrics.
+- **Double-booking prevention** (bookings version). Creating a booking runs in a database transaction that first
   locks the professional's row (`SELECT ... FOR UPDATE`), re-checks the time against opening
   hours, blocked dates and other bookings, then inserts. Concurrent requests queue on the lock,
   so exactly one wins (proved by the integration test).

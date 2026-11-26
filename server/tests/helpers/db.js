@@ -11,6 +11,9 @@ export function assertTestDatabase() {
 export async function resetDatabase() {
   assertTestDatabase();
   // Children before parents.
+  await prisma.contactEvent.deleteMany();
+  await prisma.profileView.deleteMany();
+  await prisma.searchEvent.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.review.deleteMany();
   await prisma.bookingEarning.deleteMany();

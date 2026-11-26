@@ -7,6 +7,8 @@ import BookingCard from '../../components/BookingCard.jsx';
 import ProBookingActions from '../../components/ProBookingActions.jsx';
 import { formatPeso } from '../../lib/money.js';
 import Spinner from '../../components/Spinner.jsx';
+import { BOOKINGS_ENABLED } from '../../lib/features.js';
+import { formatDateTime } from '../../lib/dates.js';
 import ErrorState from '../../components/ErrorState.jsx';
 import Alert from '../../components/Alert.jsx';
 import { VERIFICATION_LABELS, VERIFICATION_TONES } from '../../lib/labels.js';
@@ -89,6 +91,55 @@ function ApprovedDashboard() {
   );
 }
 
+const pct = (r) => (r == null ? "–" : `${Math.round(r * 100)}%`);
+
+// Discovery version: how many people saw the profile and how many reached out (workbook v3).
+function InsightsDashboard() {
+  const { data, loading, error, reload } = useAsync(() => proApi.getInsights(), []);
+  if (loading) return <Spinner label="Loading your stats..." />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+
+  const { last7, last30, availabilityUpdatedAt, availabilityStale } = data;
+  return (
+    <div className="space-y-5">
+      {availabilityStale && (
+        <Alert tone="warning">
+          {availabilityUpdatedAt ? `You last updated your availability on ${formatDateTime(availabilityUpdatedAt)}.` : "You have not updated your availability yet."}{" "}
+          Customers check it before they message you.{" "}
+          <Link to="/pro/availability" className="font-semibold underline">
+            Update availability
+          </Link>
+        </Alert>
+      )}
+      {[
+        ["Last 7 days", last7],
+        ["Last 30 days", last30],
+      ].map(([title, w]) => (
+        <section key={title} aria-label={title}>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ["Profile views", w.views, "people opened your profile"],
+              ["Contacts", w.contacts.total, "taps on Messenger, Call or SMS"],
+              ["Contact rate", pct(w.contactRate), "of views turned into a contact"],
+              ["By channel", `${w.contacts.MESSENGER} · ${w.contacts.CALL} · ${w.contacts.SMS}`, "Messenger · Call · SMS"],
+            ].map(([label, value, hint]) => (
+              <div key={label} className="rounded-card bg-white p-4 shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</p>
+                <p className="mt-1 text-2xl font-bold text-ink-900">{value}</p>
+                <p className="text-xs text-ink-500">{hint}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+      <p className="text-sm text-ink-600">
+        Customers contact you directly. Agree on the details, date and price with them in your own chat or call.
+      </p>
+    </div>
+  );
+}
+
 export default function ProOverview() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useAsync(() => proApi.getProfile(), []);
@@ -111,7 +162,7 @@ export default function ProOverview() {
 
       <StatusBanner profile={profile} />
 
-      {profile.verificationStatus === 'APPROVED' && <ApprovedDashboard />}
+      {profile.verificationStatus === 'APPROVED' && (BOOKINGS_ENABLED ? <ApprovedDashboard /> : <InsightsDashboard />)}
 
       {profile.verificationStatus !== 'APPROVED' && (
         <section className="rounded-card bg-white p-5 shadow-card">

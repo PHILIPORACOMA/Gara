@@ -2,6 +2,8 @@ import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../utils/ApiError.js';
 import { serializeService } from './catalog.service.js';
 import { assertBookableDate, filterByDateAvailability, getSlots } from './slots.service.js';
+import { contactOptions } from './contact.service.js';
+import { dbDateToIsoDate, isoDateToDbDate, nowManila } from '../utils/time.js';
 
 // Only APPROVED professionals are ever visible to customers.
 const VISIBLE = { verificationStatus: 'APPROVED' };
@@ -81,6 +83,11 @@ async function requireVisibleProfile(id) {
       areas: { select: { area: true } },
       portfolio: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
       services: { where: { isActive: true }, orderBy: [{ category: 'asc' }, { name: 'asc' }] },
+      availability: { orderBy: [{ dayOfWeek: 'asc' }, { startMin: 'asc' }] },
+      blockedDates: {
+        where: { date: { gte: isoDateToDbDate(nowManila().toISODate()), lte: isoDateToDbDate(nowManila().plus({ days: 60 }).toISODate()) } },
+        orderBy: { date: 'asc' },
+      },
     },
   });
   if (!profile) throw ApiError.notFound('Professional not found');
@@ -134,6 +141,13 @@ export async function getPublicProfile(id) {
     services: p.services.map(serializeService),
     reviews: firstReviews.reviews,
     reviewTotal: firstReviews.total,
+    // Availability is shown upfront so customers do not have to ask "are you free?".
+    availability: p.availability.map((r) => ({ dayOfWeek: r.dayOfWeek, startMin: r.startMin, endMin: r.endMin })),
+    blockedDates: p.blockedDates.map((b) => dbDateToIsoDate(b.date)),
+    availabilityUpdatedAt: p.availabilityUpdatedAt,
+    // Which contact buttons to show. The link or number itself is only given to signed-in
+    // customers through POST /professionals/:id/contact, which also counts the tap.
+    contact: contactOptions(p),
   };
 }
 

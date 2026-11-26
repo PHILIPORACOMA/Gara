@@ -12,7 +12,8 @@ for (const dir of ['public', 'private']) {
 let scheduler;
 const server = app.listen(env.PORT, () => {
   console.log(`Gara API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
-  scheduler = startScheduler();
+  // The jobs (unpaid-hold expiry, day-before reminders) only concern bookings.
+  if (env.FEATURE_BOOKINGS) scheduler = startScheduler();
 });
 
 async function shutdown(signal) {

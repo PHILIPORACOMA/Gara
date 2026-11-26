@@ -24,6 +24,14 @@ function validate(v) {
     if (v.travelFee === '' || Number.isNaN(fee) || fee < 0) errors.travelFee = 'Enter a valid amount (0 or more)';
     else if (fee > 5000) errors.travelFee = 'Travel fee must be at most 5,000';
   }
+  const messenger = v.messengerUrl.trim();
+  const phone = v.contactPhone.replace(/[\s()-]/g, '');
+  // Same rules as the server (validators/pro.validators.js).
+  if (messenger && !/^(https?:\/\/)?(www\.|m\.)?(m\.me|messenger\.com|facebook\.com|fb\.com)\/\S+$/i.test(messenger)) {
+    errors.messengerUrl = 'Paste your Messenger link (m.me/yourpage) or your Facebook page link';
+  }
+  if (phone && !/^(\+?63|0)9\d{9}$/.test(phone)) errors.contactPhone = 'Enter a Philippine mobile number, like 0917 123 4567';
+  if (!messenger && !phone) errors.contactPhone = 'Add a Messenger link or a mobile number so customers can reach you';
   return errors;
 }
 
@@ -36,6 +44,9 @@ function ProfileForm({ profile, meta, onSaved }) {
     serviceMode: profile.serviceMode,
     storeAddress: profile.storeAddress ?? '',
     travelFee: String(profile.travelFee ?? 0),
+    messengerUrl: profile.messengerUrl ?? '',
+    // Stored as +639171234567; shown the way people write it.
+    contactPhone: profile.contactPhone ? profile.contactPhone.replace(/^\+63/, '0') : '',
   });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -69,6 +80,8 @@ function ProfileForm({ profile, meta, onSaved }) {
         serviceMode: values.serviceMode,
         storeAddress: store ? values.storeAddress.trim() : '',
         travelFee: home ? Number(values.travelFee) : 0,
+        messengerUrl: values.messengerUrl.trim(),
+        contactPhone: values.contactPhone.trim(),
       });
       setSaved(true);
       onSaved(result);
@@ -124,9 +137,16 @@ function ProfileForm({ profile, meta, onSaved }) {
           value={values.travelFee}
           onChange={onChange}
           error={errors.travelFee}
-          hint="A fixed fee added to home bookings. It goes 100% to you (Gara takes no commission on it)."
+          hint="A fixed fee for home service, shown on your profile so customers know it upfront."
         />
       )}
+
+      <fieldset className="space-y-4 rounded-control border border-ink-200 p-4">
+        <legend className="px-1 text-sm font-semibold text-ink-800">How customers reach you</legend>
+        <p className="text-xs text-ink-500">Add at least one. Customers tap Messenger, Call or SMS on your profile. Your link and number are only shown to signed-in customers.</p>
+        <TextField label="Messenger link" name="messengerUrl" value={values.messengerUrl} onChange={onChange} error={errors.messengerUrl} placeholder="m.me/yourpage" inputMode="url" autoComplete="url" hint="Your m.me link or Facebook page link" />
+        <TextField label="Mobile number (for Call and SMS)" name="contactPhone" type="tel" value={values.contactPhone} onChange={onChange} error={errors.contactPhone} placeholder="0917 123 4567" inputMode="tel" autoComplete="tel" />
+      </fieldset>
 
       <div className="flex items-center gap-3">
         <Button type="submit" loading={saving}>

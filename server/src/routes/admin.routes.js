@@ -5,6 +5,7 @@ import * as bookingController from '../controllers/booking.controller.js';
 import { adminBookingsQuery, depositRejectBody } from '../validators/booking.validators.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { env } from '../config/env.js';
 import { discardUploadsOnError, uploadQrImage, verifyUploadedImages } from '../middleware/upload.js';
 import { idParam, rejectBody } from '../validators/pro.validators.js';
 
@@ -22,9 +23,13 @@ const settingsBody = z.object({
 });
 
 router.get('/metrics', controller.metrics);
-router.get('/settings', controller.getSettings);
-router.put('/settings', validate({ body: settingsBody }), controller.updateSettings);
-router.post('/settings/qr', uploadQrImage, verifyUploadedImages, controller.uploadQr, discardUploadsOnError);
+
+// Deposit %, commission % and GCash details only matter when bookings are on.
+if (env.FEATURE_BOOKINGS) {
+  router.get('/settings', controller.getSettings);
+  router.put('/settings', validate({ body: settingsBody }), controller.updateSettings);
+  router.post('/settings/qr', uploadQrImage, verifyUploadedImages, controller.uploadQr, discardUploadsOnError);
+}
 
 const verificationQuery = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).default('PENDING'),
@@ -34,11 +39,13 @@ router.get('/verifications', validate({ query: verificationQuery }), controller.
 router.post('/verifications/:id/approve', validate({ params: idParam }), controller.approveVerification);
 router.post('/verifications/:id/reject', validate({ params: idParam, body: rejectBody }), controller.rejectVerification);
 
-// GCash deposits waiting to be checked, and the full booking list.
-router.get('/deposits', bookingController.adminDeposits);
-router.post('/bookings/:id/deposit/verify', validate({ params: idParam }), bookingController.adminVerifyDeposit);
-router.post('/bookings/:id/deposit/reject', validate({ params: idParam, body: depositRejectBody }), bookingController.adminRejectDeposit);
-router.get('/bookings', validate({ query: adminBookingsQuery }), bookingController.adminBookingsList);
-router.post('/bookings/:id/refund-resolved', validate({ params: idParam }), bookingController.adminRefundResolved);
+// GCash deposits waiting to be checked, and the full booking list (bookings version only).
+if (env.FEATURE_BOOKINGS) {
+  router.get('/deposits', bookingController.adminDeposits);
+  router.post('/bookings/:id/deposit/verify', validate({ params: idParam }), bookingController.adminVerifyDeposit);
+  router.post('/bookings/:id/deposit/reject', validate({ params: idParam, body: depositRejectBody }), bookingController.adminRejectDeposit);
+  router.get('/bookings', validate({ query: adminBookingsQuery }), bookingController.adminBookingsList);
+  router.post('/bookings/:id/refund-resolved', validate({ params: idParam }), bookingController.adminRefundResolved);
+}
 
 export default router;

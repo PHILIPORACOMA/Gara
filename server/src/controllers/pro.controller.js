@@ -1,6 +1,7 @@
 import * as professionalService from '../services/professional.service.js';
 import * as catalogService from '../services/catalog.service.js';
 import * as availabilityService from '../services/availability.service.js';
+import * as contactService from '../services/contact.service.js';
 import { removeFileQuietly } from '../utils/files.js';
 
 const userId = (req) => req.user.id;
@@ -9,6 +10,11 @@ const userId = (req) => req.user.id;
 // already wrote to disk must not be left behind.
 async function discardUploads(files) {
   await Promise.all(files.map((f) => removeFileQuietly(f.path)));
+}
+
+// Profile views and contact taps, last 7 and 30 days.
+export async function getInsights(req, res) {
+  res.json(await contactService.getProInsights(userId(req)));
 }
 
 export async function getProfile(req, res) {

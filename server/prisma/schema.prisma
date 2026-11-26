@@ -108,6 +108,8 @@ model User {
   bookingsCancelled   Booking[]            @relation("BookingCanceller")
   reviews             Review[]
   notifications       Notification[]
+  contactEvents       ContactEvent[]
+  profileViews        ProfileView[]
 
   @@map("users")
 }
@@ -133,6 +135,13 @@ model ProfessionalProfile {
   ratingAvg   Decimal  @default(0) @db.Decimal(3, 2)
   ratingCount Int      @default(0)
 
+  // How customers reach the pro (workbook v3: one-tap Messenger, call or SMS).
+  // Shown only to signed-in customers, and every tap is logged as a ContactEvent.
+  messengerUrl String? @db.VarChar(200)
+  contactPhone String? @db.VarChar(30)
+  // Last time the pro changed weekly hours or blocked dates ("pros update availability weekly").
+  availabilityUpdatedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -145,6 +154,8 @@ model ProfessionalProfile {
   blockedDates BlockedDate[]
   bookings     Booking[]
   reviews      Review[]
+  contactEvents ContactEvent[]
+  profileViews  ProfileView[]
 
   @@index([verificationStatus])
   @@map("professional_profiles")
@@ -380,6 +391,60 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------- discovery analytics
+// Workbook v3 key metrics: contact clicks, profile views, search-to-contact rate.
+
+enum ContactChannel {
+  MESSENGER
+  CALL
+  SMS
+}
+
+// A signed-in customer tapped Messenger, Call or SMS on a pro's profile.
+model ContactEvent {
+  id             Int            @id @default(autoincrement())
+  professionalId Int
+  customerId     Int
+  channel        ContactChannel
+  createdAt      DateTime       @default(now())
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  customer     User                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, createdAt])
+  @@index([createdAt])
+  @@map("contact_events")
+}
+
+// Someone opened a pro's public profile (viewerId is null for visitors who are not signed in).
+model ProfileView {
+  id             Int      @id @default(autoincrement())
+  professionalId Int
+  viewerId       Int?
+  createdAt      DateTime @default(now())
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  viewer       User?               @relation(fields: [viewerId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, createdAt])
+  @@index([createdAt])
+  @@map("profile_views")
+}
+
+// One search on the Find a pro page (for the search-to-contact rate).
+model SearchEvent {
+  id          Int       @id @default(autoincrement())
+  userId      Int?
+  category    Category?
+  area        String?   @db.VarChar(80)
+  hasDate     Boolean   @default(false)
+  resultCount Int
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+  @@map("search_events")
 }
 
 // ---------------------------------------------------------------- settings

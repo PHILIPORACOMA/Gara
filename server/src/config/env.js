@@ -16,6 +16,13 @@ const schema = z.object({
   // Demo/testing switch. Normally a pro can only mark a booking COMPLETED or NO_SHOW once the
   // appointment has started. Set to "true" to allow it earlier so the full flow can be tried
   // without waiting for the appointment time. Keep "false" in production.
+  // Workbook v3 makes Gara a discovery and contact platform: no bookings or payments.
+  // The booking, deposit, commission and review code stays in the repo but its routes and
+  // jobs are switched off unless this is "true" (the full booking version is tag booking-mvp).
+  FEATURE_BOOKINGS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   ALLOW_EARLY_COMPLETE: z
     .enum(['true', 'false'])
     .default('false')

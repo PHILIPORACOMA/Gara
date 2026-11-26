@@ -9,9 +9,9 @@ import Spinner from '../components/Spinner.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 
 const STEPS = [
-  { title: 'Find a verified pro', text: 'Browse real portfolios, upfront prices and reviews from completed bookings.' },
-  { title: 'Pick a time that works', text: 'See live availability, choose home service or in-store, and know the full price before you book.' },
-  { title: 'Secure it with a deposit', text: 'Pay a small GCash deposit to lock your slot. Pay the balance on the day.' },
+  { title: 'Search by service, area and date', text: 'See only pros who serve your area and are free on the day you need.' },
+  { title: 'Compare verified pros', text: 'ID-verified profiles with real portfolios, upfront prices, home-service fees and availability.' },
+  { title: 'Contact them in one tap', text: 'Message on Messenger, call or text the pro directly and agree on the details.' },
 ];
 
 export default function Home() {
@@ -27,7 +27,7 @@ export default function Home() {
         <div className="mx-auto max-w-5xl">
           <h1 className="max-w-xl text-4xl font-bold leading-tight sm:text-5xl">Beauty pros you can trust, booked in minutes.</h1>
           <p className="mt-3 max-w-xl text-ink-600">
-            Hairstylists, nail technicians and makeup artists in Cebu. Verified profiles, upfront prices, real reviews.
+            Hairstylists, nail technicians and makeup artists in Cebu. Verified profiles, upfront prices, availability, and one-tap contact.
           </p>
           <div className="mt-6 max-w-2xl rounded-card bg-white p-5 shadow-card">
             <SearchFilters value={EMPTY_FILTERS} onApply={onSearch} compact />
@@ -83,7 +83,7 @@ export default function Home() {
           <div className="mx-auto max-w-5xl rounded-card bg-brand-600 p-6 text-white sm:p-8">
             <h2 className="text-2xl font-bold !text-white">Are you a hairstylist, nail tech or makeup artist?</h2>
             <p className="mt-2 max-w-xl text-brand-50">
-              Get verified, show your portfolio and manage every booking in one place. Free to join, no monthly fee.
+              Get verified, show your work, prices and availability, and get found by new clients. Free to join.
             </p>
             <Link to="/register?role=professional" className="mt-4 inline-block rounded-control bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50">
               Join as a pro

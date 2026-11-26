@@ -6,7 +6,8 @@ export const approveVerification = (id) => http.post(`/admin/verifications/${id}
 export const rejectVerification = (id, reason) =>
   http.post(`/admin/verifications/${id}/reject`, { reason }).then((r) => r.data.verification);
 
-export const getMetrics = () => http.get('/admin/metrics').then((r) => r.data.metrics);
+// { kind: 'discovery' | 'bookings', metrics }
+export const getMetrics = () => http.get('/admin/metrics').then((r) => r.data);
 export const getSettings = () => http.get('/admin/settings').then((r) => r.data.settings);
 export const updateSettings = (payload) => http.put('/admin/settings', payload).then((r) => r.data.settings);
 export function uploadQr(file) {

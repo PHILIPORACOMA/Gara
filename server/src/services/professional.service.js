@@ -34,6 +34,9 @@ export function serializeProfile(p) {
     verifiedAt: p.verifiedAt,
     ratingAvg: Number(p.ratingAvg),
     ratingCount: p.ratingCount,
+    messengerUrl: p.messengerUrl,
+    contactPhone: p.contactPhone,
+    availabilityUpdatedAt: p.availabilityUpdatedAt,
   };
 }
 
@@ -95,6 +98,8 @@ export async function updateProfile(userId, input) {
         storeAddress: needsStore ? input.storeAddress : null,
         // The travel fee only applies to home service.
         travelFee: allowsHome ? input.travelFee : 0,
+        messengerUrl: input.messengerUrl ?? null,
+        contactPhone: input.contactPhone ?? null,
       },
     }),
     prisma.professionalCategory.deleteMany({ where: { professionalId: profile.id } }),

@@ -6,6 +6,10 @@ import { requireProfile } from './professional.service.js';
 const serializeRule = (r) => ({ id: r.id, dayOfWeek: r.dayOfWeek, startMin: r.startMin, endMin: r.endMin });
 const serializeBlocked = (b) => ({ id: b.id, date: dbDateToIsoDate(b.date), reason: b.reason });
 
+// Remember when the pro last touched their calendar (workbook KPI: pros update availability weekly).
+const touchAvailability = (professionalId) =>
+  prisma.professionalProfile.update({ where: { id: professionalId }, data: { availabilityUpdatedAt: new Date() } });
+
 export async function getAvailability(userId) {
   const profile = await requireProfile(userId);
   const rules = await prisma.availabilityRule.findMany({
@@ -23,6 +27,7 @@ export async function replaceAvailability(userId, rules) {
     prisma.availabilityRule.createMany({
       data: rules.map((r) => ({ professionalId: profile.id, dayOfWeek: r.dayOfWeek, startMin: r.startMin, endMin: r.endMin })),
     }),
+    touchAvailability(profile.id),
   ]);
   return getAvailability(userId);
 }
@@ -47,6 +52,7 @@ export async function addBlockedDate(userId, { date, reason }) {
   const created = await prisma.blockedDate.create({
     data: { professionalId: profile.id, date: dbDate, reason: reason ?? null },
   });
+  await touchAvailability(profile.id);
   return serializeBlocked(created);
 }
 
@@ -54,4 +60,5 @@ export async function removeBlockedDate(userId, blockedId) {
   const profile = await requireProfile(userId);
   const result = await prisma.blockedDate.deleteMany({ where: { id: blockedId, professionalId: profile.id } });
   if (result.count === 0) throw ApiError.notFound('Blocked date not found');
+  await touchAvailability(profile.id);
 }

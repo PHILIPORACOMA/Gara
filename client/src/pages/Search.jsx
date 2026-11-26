@@ -17,7 +17,7 @@ export default function Search() {
   const filters = filtersFromParams(searchParams);
   const key = searchParams.toString();
 
-  const { data, loading, error, reload } = useAsync(() => searchPros(filters), [key]);
+  const { data, loading, error, reload } = useAsync(() => searchPros({ ...filters, source: 'search' }), [key]);
 
   const apply = (next) => {
     setSearchParams(paramsFromFilters(next));

@@ -26,6 +26,25 @@ export async function authenticate(req, res, next) {
   next();
 }
 
+// For public routes that behave the same for everyone but want to know who is asking when a
+// valid token is sent (e.g. to attribute a profile view). Never fails: a missing, expired or
+// bad token just means an anonymous visitor.
+export async function optionalAuth(req, res, next) {
+  const [scheme, token] = (req.headers.authorization ?? '').split(' ');
+  if (scheme === 'Bearer' && token) {
+    try {
+      const payload = jwt.verify(token, env.JWT_SECRET);
+      req.user = await prisma.user.findUnique({
+        where: { id: Number(payload.sub) },
+        select: { id: true, role: true, name: true, email: true },
+      });
+    } catch {
+      req.user = null;
+    }
+  }
+  next();
+}
+
 // Use after authenticate: requireRole('ADMIN'), requireRole('PROFESSIONAL', 'ADMIN'), ...
 export const requireRole =
   (...roles) =>

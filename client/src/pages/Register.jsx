@@ -6,6 +6,7 @@ import { apiErrorMessage, apiFieldErrors } from '../api/http.js';
 import { getPublicSettings } from '../api/publicApi.js';
 import { validateRegister } from '../lib/validation.js';
 import { TextField } from '../components/Field.jsx';
+import { BOOKINGS_ENABLED } from '../lib/features.js';
 import Button from '../components/Button.jsx';
 
 const ROLE_OPTIONS = [
@@ -92,7 +93,7 @@ export default function Register() {
           {role === 'PROFESSIONAL' && (
             <p className="mt-2 rounded-control bg-accent-50 px-3 py-2 text-xs text-accent-700">
               Free to join, no monthly fee.
-              {commissionPct !== null && ` Gara keeps ${commissionPct}% of the service price on completed bookings.`}{' '}
+              {BOOKINGS_ENABLED && commissionPct !== null && ` Gara keeps ${commissionPct}% of the service price on completed bookings.`}{' '}
               Verification (a valid ID and your portfolio) is required before you appear in search.
             </p>
           )}

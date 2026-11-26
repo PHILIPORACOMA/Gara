@@ -5,6 +5,8 @@ import * as adminApi from '../../api/admin.js';
 import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import { formatPeso } from '../../lib/money.js';
+import { BOOKINGS_ENABLED } from '../../lib/features.js';
+import DiscoveryMetrics from './DiscoveryMetrics.jsx';
 
 const pct = (rate) => (rate == null ? '–' : `${Math.round(rate * 1000) / 10}%`);
 const monthName = (iso) => new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'long', year: 'numeric' }).format(new Date(iso));
@@ -20,9 +22,11 @@ function MetricCard({ title, value, hint, tone = 'text-ink-900' }) {
 }
 
 function Metrics() {
-  const { data: m, loading, error, reload } = useAsync(() => adminApi.getMetrics(), []);
+  const { data, loading, error, reload } = useAsync(() => adminApi.getMetrics(), []);
   if (loading) return <Spinner label="Loading metrics..." />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
+  if (data.kind === 'discovery') return <DiscoveryMetrics m={data.metrics} />;
+  const m = data.metrics;
 
   return (
     <div className="space-y-5">
@@ -62,8 +66,9 @@ function Metrics() {
 export default function AdminOverview() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useAsync(async () => {
-    const [verifications, deposits, refunds] = await Promise.all([
-      adminApi.listVerifications('PENDING'),
+    const verifications = await adminApi.listVerifications('PENDING');
+    if (!BOOKINGS_ENABLED) return { verifications: verifications.length };
+    const [deposits, refunds] = await Promise.all([
       adminApi.listDeposits(),
       adminApi.listAllBookings({ refund: 'needed', pageSize: 1 }),
     ]);
@@ -72,8 +77,12 @@ export default function AdminOverview() {
 
   const queues = data && [
     ['Pro verifications', data.verifications, 'Professionals waiting to be verified', '/admin/verifications'],
-    ['Deposits to verify', data.deposits, 'GCash payments to check', '/admin/deposits'],
-    ['Refunds needed', data.refunds, 'Declined bookings to refund by hand', '/admin/bookings'],
+    ...(BOOKINGS_ENABLED
+      ? [
+          ['Deposits to verify', data.deposits, 'GCash payments to check', '/admin/deposits'],
+          ['Refunds needed', data.refunds, 'Declined bookings to refund by hand', '/admin/bookings'],
+        ]
+      : []),
   ];
 
   return (

@@ -27,6 +27,7 @@ import AdminSettings from './pages/admin/AdminSettings.jsx';
 import AdminLayout from './pages/admin/AdminLayout.jsx';
 import AdminOverview from './pages/admin/AdminOverview.jsx';
 import AdminVerifications from './pages/admin/AdminVerifications.jsx';
+import { BOOKINGS_ENABLED } from './lib/features.js';
 
 export default function App() {
   return (
@@ -44,17 +45,20 @@ export default function App() {
               <Route path="notifications" element={<Notifications />} />
             </Route>
 
-            <Route element={<ProtectedRoute roles={['CUSTOMER']} />}>
-              <Route path="pros/:id/book" element={<BookingFlow />} />
-              <Route path="bookings" element={<MyBookings />} />
-              <Route path="bookings/:id" element={<BookingDetail />} />
-            </Route>
+            {/* Booking screens: hidden in the discovery version (workbook v3). */}
+            {BOOKINGS_ENABLED && (
+              <Route element={<ProtectedRoute roles={['CUSTOMER']} />}>
+                <Route path="pros/:id/book" element={<BookingFlow />} />
+                <Route path="bookings" element={<MyBookings />} />
+                <Route path="bookings/:id" element={<BookingDetail />} />
+              </Route>
+            )}
 
             <Route element={<ProtectedRoute roles={['PROFESSIONAL']} />}>
               <Route path="pro" element={<ProLayout />}>
                 <Route index element={<ProOverview />} />
-                <Route path="bookings" element={<ProBookings />} />
-                <Route path="earnings" element={<ProEarnings />} />
+                {BOOKINGS_ENABLED && <Route path="bookings" element={<ProBookings />} />}
+                {BOOKINGS_ENABLED && <Route path="earnings" element={<ProEarnings />} />}
                 <Route path="profile" element={<ProProfile />} />
                 <Route path="services" element={<ProServices />} />
                 <Route path="portfolio" element={<ProPortfolio />} />
@@ -67,9 +71,9 @@ export default function App() {
               <Route path="admin" element={<AdminLayout />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="verifications" element={<AdminVerifications />} />
-                <Route path="deposits" element={<AdminDeposits />} />
-                <Route path="bookings" element={<AdminBookings />} />
-                <Route path="settings" element={<AdminSettings />} />
+                {BOOKINGS_ENABLED && <Route path="deposits" element={<AdminDeposits />} />}
+                {BOOKINGS_ENABLED && <Route path="bookings" element={<AdminBookings />} />}
+                {BOOKINGS_ENABLED && <Route path="settings" element={<AdminSettings />} />}
               </Route>
             </Route>
 

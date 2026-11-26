@@ -2,11 +2,15 @@ import path from 'node:path';
 import * as verificationService from '../services/verification.service.js';
 import * as settingsService from '../services/settings.service.js';
 import { getMetrics } from '../services/metrics.service.js';
+import { getDiscoveryMetrics } from '../services/contact.service.js';
+import { env } from '../config/env.js';
 import { ApiError } from '../utils/ApiError.js';
 import { publicDir, removeFileQuietly } from '../utils/files.js';
 
+// Discovery version: searches, views, contacts. Bookings version: bookings, deposits, commission.
 export async function metrics(req, res) {
-  res.json({ metrics: await getMetrics() });
+  if (env.FEATURE_BOOKINGS) res.json({ kind: 'bookings', metrics: await getMetrics() });
+  else res.json({ kind: 'discovery', metrics: await getDiscoveryMetrics() });
 }
 
 export async function getSettings(req, res) {

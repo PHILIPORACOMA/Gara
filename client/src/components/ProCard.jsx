@@ -5,6 +5,7 @@ import VerifiedBadge from './VerifiedBadge.jsx';
 import { CATEGORY_LABELS } from '../lib/labels.js';
 import { formatPeso } from '../lib/money.js';
 import { uploadUrl } from '../lib/uploads.js';
+import { BOOKINGS_ENABLED } from '../lib/features.js';
 
 const MODE_TEXT = { HOME: 'Home service', STORE: 'In-store', BOTH: 'Home service or in-store' };
 
@@ -29,7 +30,8 @@ export default function ProCard({ pro, query = '' }) {
             {pro.verified && <VerifiedBadge />}
           </div>
           <div className="mt-1">
-            <StarRating value={pro.ratingAvg} count={pro.ratingCount} />
+            {/* Ratings come from completed bookings, so they only exist in the bookings version. */}
+            {BOOKINGS_ENABLED && <StarRating value={pro.ratingAvg} count={pro.ratingCount} />}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {pro.categories.map((c) => (

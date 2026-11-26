@@ -1,10 +1,11 @@
 import { Outlet } from 'react-router-dom';
 import SubNav from '../../components/SubNav.jsx';
+import { BOOKINGS_ENABLED } from '../../lib/features.js';
 
 const ITEMS = [
   { to: '/pro', label: 'Overview', end: true },
-  { to: '/pro/bookings', label: 'Bookings' },
-  { to: '/pro/earnings', label: 'Earnings' },
+  ...(BOOKINGS_ENABLED ? [{ to: '/pro/bookings', label: 'Bookings' }] : []),
+  ...(BOOKINGS_ENABLED ? [{ to: '/pro/earnings', label: 'Earnings' }] : []),
   { to: '/pro/profile', label: 'Profile' },
   { to: '/pro/services', label: 'Services' },
   { to: '/pro/portfolio', label: 'Portfolio' },

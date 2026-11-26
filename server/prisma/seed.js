@@ -117,6 +117,9 @@ async function removeReferencedFiles() {
 async function wipe() {
   await removeReferencedFiles();
   // Children before parents.
+  await prisma.contactEvent.deleteMany();
+  await prisma.profileView.deleteMany();
+  await prisma.searchEvent.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.review.deleteMany();
   await prisma.bookingEarning.deleteMany();
@@ -332,6 +335,11 @@ async function main() {
         idImagePath: `id/${idName}`,
         submittedAt: nowManila().minus({ days: approved ? 60 : 1 }).toJSDate(),
         verifiedAt: approved ? nowManila().minus({ days: 55 - index }).toJSDate() : null,
+        // Demo contact links. They are fictional: do not tap Call or SMS on a real phone.
+        messengerUrl: `https://m.me/gara.demo.${def.key}`,
+        contactPhone: `+6390000000${String(index + 1).padStart(2, '0')}`,
+        // Most pros updated their calendar this week; every third one is overdue.
+        availabilityUpdatedAt: nowManila().minus({ days: index % 3 === 2 ? 12 : index % 4 }).toJSDate(),
         categories: { create: def.categories.map((category) => ({ category })) },
         areas: { create: def.areas.map((area) => ({ area })) },
         availability: { create: def.availability.map(([dayOfWeek, startMin, endMin]) => ({ dayOfWeek, startMin, endMin })) },
@@ -417,6 +425,44 @@ async function main() {
     }
   }
 
+  // A month of discovery activity (workbook v3 metrics): searches, profile views, contact taps.
+  // A small fixed pseudo-random sequence keeps every seed run identical.
+  let rnd = 7;
+  const next = (n) => {
+    rnd = (rnd * 1103515245 + 12345) % 2147483648;
+    return rnd % n;
+  };
+  const daysAgo = (d, h) => new Date(now.getTime() - d * 86_400_000 - h * 3_600_000);
+  const customerList = Object.values(customers);
+  const channels = ['MESSENGER', 'MESSENGER', 'MESSENGER', 'CALL', 'SMS'];
+  const views = [];
+  const contacts = [];
+  for (const { def, profile } of Object.values(pros)) {
+    if (def.status) continue; // pending pros are not public
+    const viewCount = 12 + next(30);
+    for (let i = 0; i < viewCount; i += 1) {
+      const when = daysAgo(next(30), next(24));
+      const viewer = next(3) === 0 ? null : customerList[next(customerList.length)];
+      views.push({ professionalId: profile.id, viewerId: viewer?.id ?? null, createdAt: when });
+      if (viewer && next(4) === 0) {
+        contacts.push({ professionalId: profile.id, customerId: viewer.id, channel: channels[next(channels.length)], createdAt: new Date(when.getTime() + 60_000) });
+      }
+    }
+  }
+  await prisma.profileView.createMany({ data: views });
+  await prisma.contactEvent.createMany({ data: contacts });
+  const categories = ['HAIR', 'NAILS', 'MAKEUP', null];
+  const areas = ['Cebu City', 'Mandaue City', 'Lapu-Lapu City', 'Talisay City', null];
+  await prisma.searchEvent.createMany({
+    data: Array.from({ length: Math.round(contacts.length * 4.5) }, () => ({
+      category: categories[next(categories.length)],
+      area: areas[next(areas.length)],
+      hasDate: next(2) === 0,
+      resultCount: 1 + next(5),
+      createdAt: daysAgo(next(30), next(24)),
+    })),
+  });
+
   // Ratings shown on pro cards.
   for (const [profileId, ratings] of Object.entries(reviewTotals)) {
     const avg = ratings.reduce((a, c) => a + c, 0) / ratings.length;
@@ -434,7 +480,8 @@ async function main() {
   const confirmed = await find('CONFIRMED', 'mara');
   const declined = await find('DECLINED', 'tin');
   const birthday = await find('COMPLETED', 'kiko', 'ana');
-  await prisma.notification.createMany({
+  // Booking notifications only make sense when bookings are switched on.
+  if (process.env.FEATURE_BOOKINGS === 'true') await prisma.notification.createMany({
     data: [
       { userId: admin.id, type: 'DEPOSIT_SUBMITTED', title: 'Deposit to verify', body: 'Benjie Cruz sent a GCash deposit for a booking with Lia Alcoseba Nails.', bookingId: submitted.id },
       { userId: admin.id, type: 'REFUND_NEEDED', title: 'Refund needed', body: 'Glow by Tin declined a booking. Refund the deposit to Carla Mendoza.', bookingId: declined.id },
@@ -450,6 +497,9 @@ async function main() {
     bookings: await prisma.booking.count(),
     completed: await prisma.booking.count({ where: { status: 'COMPLETED' } }),
     reviews: await prisma.review.count(),
+    profileViews: await prisma.profileView.count(),
+    contacts: await prisma.contactEvent.count(),
+    searches: await prisma.searchEvent.count(),
   };
 
   console.log('\nSeed complete:', JSON.stringify(counts));

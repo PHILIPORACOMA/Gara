@@ -10,3 +10,6 @@ export const getProReviews = (id, page = 1) => http.get(`/professionals/${id}/re
 // serviceIds: array of ids; mode: 'HOME' | 'STORE'
 export const getSlots = (id, { date, mode, serviceIds }) =>
   http.get(`/professionals/${id}/slots`, { params: { date, mode, serviceIds: serviceIds.join(',') } }).then((r) => r.data);
+
+// Signed-in customers only. Logs the tap and returns the Messenger, tel: or sms: link to open.
+export const contactPro = (id, channel) => http.post(`/professionals/${id}/contact`, { channel }).then((r) => r.data);

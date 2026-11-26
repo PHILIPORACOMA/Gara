@@ -3,7 +3,7 @@ import { buildChecklist } from '../src/services/onboarding.js';
 import { availabilityBody, findAvailabilityProblems, profileBody, serviceBody } from '../src/validators/pro.validators.js';
 
 const complete = {
-  profile: { displayName: 'Mara Salon', serviceMode: 'HOME', storeAddress: null },
+  profile: { displayName: 'Mara Salon', serviceMode: 'HOME', storeAddress: null, messengerUrl: 'https://m.me/marasalon', contactPhone: null },
   categoryCount: 1,
   areaCount: 2,
   activeServiceCount: 1,
@@ -23,6 +23,13 @@ describe('onboarding checklist', () => {
     const result = buildChecklist({ ...complete, activeServiceCount: 0, hasIdImage: false });
     expect(result.complete).toBe(false);
     expect(result.missing).toEqual(['services', 'id']);
+  });
+
+  it('requires at least one contact method (Messenger link or mobile number)', () => {
+    const none = { ...complete.profile, messengerUrl: null, contactPhone: null };
+    expect(buildChecklist({ ...complete, profile: none }).missing).toEqual(['contact']);
+    const phoneOnly = { ...none, contactPhone: '+639171234567' };
+    expect(buildChecklist({ ...complete, profile: phoneOnly }).complete).toBe(true);
   });
 
   it('requires a store address when the pro works in-store', () => {

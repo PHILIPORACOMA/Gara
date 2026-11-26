@@ -23,6 +23,8 @@ export const listBlockedDates = () => http.get('/pro/blocked-dates').then((r) =>
 export const addBlockedDate = (payload) => http.post('/pro/blocked-dates', payload).then((r) => r.data.blockedDate);
 export const removeBlockedDate = (id) => http.delete(`/pro/blocked-dates/${id}`);
 
+// Profile views and contact taps (last 7 and 30 days).
+export const getInsights = () => http.get('/pro/insights').then(data);
 export const getDashboard = () => http.get('/pro/dashboard').then(data);
 export const listBookings = (tab) => http.get('/pro/bookings', { params: { tab } }).then(data);
 export const getCalendar = (month) => http.get('/pro/calendar', { params: { month } }).then(data);
